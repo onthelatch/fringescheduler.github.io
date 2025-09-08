@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fringe Show Data Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #111827; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body class="text-gray-200">
+
+<div class="container mx-auto p-4 md:p-8 max-w-6xl">
+    <header class="text-center mb-8">
+        <h1 class="text-4xl md:text-5xl font-bold text-white tracking-tight">Show Data Generator</h1>
+        <p class="mt-2 text-lg text-gray-400">Create and edit the JSON data for your festival scheduler</p>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Left Column: Input Form -->
+        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700" id="form-section">
+            <h2 class="text-2xl font-bold mb-4 text-white">Festival & Show Details</h2>
+            
+            <!-- Festival Dates -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label for="festival-start-date" class="block text-sm font-medium text-gray-300 mb-1">Festival Start Date</label>
+                    <input type="date" id="festival-start-date" value="2025-09-12" class="w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white focus:ring-sky-500 focus:border-sky-500">
+                </div>
+                <div>
+                    <label for="festival-end-date" class="block text-sm font-medium text-gray-300 mb-1">Festival End Date</label>
+                    <input type="date" id="festival-end-date" value="2025-09-21" class="w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white focus:ring-sky-500 focus:border-sky-500">
+                </div>
+            </div>
+
+            <!-- Add/Edit Show Form -->
+            <form id="add-show-form" class="space-y-4 border-t border-gray-700 pt-6">
+                <h3 id="form-title" class="text-xl font-semibold text-white">Add a New Show</h3>
+                <div>
+                    <label for="show-title" class="block text-sm font-medium text-gray-300 mb-1">Show Title</label>
+                    <input type="text" id="show-title" class="w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white" required>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="show-venue" class="block text-sm font-medium text-gray-300 mb-1">Venue</label>
+                        <input type="text" id="show-venue" class="w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white" required>
+                    </div>
+                    <div>
+                        <label for="show-duration" class="block text-sm font-medium text-gray-300 mb-1">Duration (mins)</label>
+                        <input type="number" id="show-duration" class="w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white" required>
+                    </div>
+                </div>
+
+                <!-- Performances Section -->
+                <div>
+                    <h4 class="text-lg font-medium text-white mb-2">Performances</h4>
+                    <div id="performances-list" class="space-y-2 mb-2"></div>
+                    <div class="flex items-center gap-2 p-2 bg-gray-700/50 rounded-md">
+                        <input type="datetime-local" id="performance-datetime" class="flex-grow bg-gray-600 border-gray-500 rounded p-1 text-white text-sm">
+                        <select id="performance-status" class="bg-gray-600 border-gray-500 rounded p-1 text-white text-sm">
+                            <option value="available">Available</option>
+                            <option value="limited availability">Limited Availability</option>
+                            <option value="sold out">Sold Out</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <button type="button" id="add-performance-btn" class="bg-sky-600 hover:bg-sky-700 text-white font-bold p-1 rounded-md">
+                            <i data-lucide="plus" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" id="submit-show-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition">Add Show to List</button>
+                    <button type="button" id="cancel-edit-btn" class="hidden w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition">Cancel Edit</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Right Column: Show List & JSON Output/Input -->
+        <div>
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-8">
+                <h2 class="text-2xl font-bold mb-4 text-white">Current Show List</h2>
+                <div id="current-shows-list" class="space-y-3 max-h-64 overflow-y-auto pr-2">
+                    <p class="text-gray-400">No shows added yet.</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <h2 class="text-2xl font-bold mb-4 text-white">Generated JSON</h2>
+                <button id="generate-json-btn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg transition mb-4">Generate JSON Output</button>
+                <textarea id="json-output" class="w-full h-48 bg-gray-900 text-gray-300 font-mono text-sm p-2 rounded-md border border-gray-600" readonly></textarea>
+                <button id="copy-json-btn" class="w-full mt-2 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition">Copy to Clipboard</button>
+            </div>
+            
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 mt-8">
+                <h2 class="text-2xl font-bold mb-4 text-white">Import & Edit</h2>
+                <p class="text-sm text-gray-400 mb-2">Paste existing JSON here to load it into the editor.</p>
+                <textarea id="json-import" class="w-full h-24 bg-gray-900 text-gray-300 font-mono text-sm p-2 rounded-md border border-gray-600"></textarea>
+                <button id="import-json-btn" class="w-full mt-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition">Load Data</button>
+                <p id="import-error-msg" class="text-red-400 text-sm mt-2 hidden"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+
+        let showsData = [];
+        let tempPerformances = [];
+        let nextShowId = 1;
+        let editingShowId = null;
+
+        const addShowForm = document.getElementById('add-show-form');
+        const formTitle = document.getElementById('form-title');
+        const performancesList = document.getElementById('performances-list');
+        const addPerformanceBtn = document.getElementById('add-performance-btn');
+        const currentShowsList = document.getElementById('current-shows-list');
+        const submitShowBtn = document.getElementById('submit-show-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const generateJsonBtn = document.getElementById('generate-json-btn');
+        const jsonOutput = document.getElementById('json-output');
+        const copyJsonBtn = document.getElementById('copy-json-btn');
+        const importJsonBtn = document.getElementById('import-json-btn');
+        const jsonImportText = document.getElementById('json-import');
+        const importErrorMsg = document.getElementById('import-error-msg');
+
+        function renderTempPerformances() {
+            performancesList.innerHTML = tempPerformances.map((p, index) => {
+                // Handle both full datetime string and date object
+                const dateStr = p.startTime instanceof Date ? p.startTime.toISOString().slice(0, 16) : p.startTime;
+                const displayDate = new Date(dateStr).toLocaleString();
+                return `
+                <div class="flex items-center justify-between bg-gray-600 p-2 rounded text-sm">
+                    <span>${displayDate} - ${p.status}</span>
+                    <button type="button" class="text-red-400 hover:text-red-300" onclick="removeTempPerformance(${index})">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `}).join('');
+            if (tempPerformances.length > 0) lucide.createIcons();
+        }
+
+        window.removeTempPerformance = (index) => {
+            tempPerformances.splice(index, 1);
+            renderTempPerformances();
+        };
+
+        addPerformanceBtn.addEventListener('click', () => {
+            const datetimeInput = document.getElementById('performance-datetime');
+            const statusInput = document.getElementById('performance-status');
+            if (datetimeInput.value) {
+                tempPerformances.push({
+                    startTime: datetimeInput.value,
+                    status: statusInput.value
+                });
+                datetimeInput.value = '';
+                renderTempPerformances();
+            }
+        });
+
+        function renderShowsList() {
+            if (showsData.length === 0) {
+                currentShowsList.innerHTML = '<p class="text-gray-400">No shows added yet.</p>';
+                return;
+            }
+            currentShowsList.innerHTML = showsData.map(show => `
+                <div class="bg-gray-700 p-3 rounded-md flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-white">${show.title}</p>
+                        <p class="text-sm text-gray-400">${show.venue} - ${show.performances.length} performance(s)</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                         <button type="button" class="text-sky-400 hover:text-sky-300" onclick="startEditShow(${show.id})">
+                            <i data-lucide="edit" class="w-5 h-5"></i>
+                        </button>
+                        <button type="button" class="text-red-400 hover:text-red-300" onclick="deleteShow(${show.id})">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+        
+        window.startEditShow = (showId) => {
+            const show = showsData.find(s => s.id === showId);
+            if (!show) return;
+
+            editingShowId = showId;
+            document.getElementById('show-title').value = show.title;
+            document.getElementById('show-venue').value = show.venue;
+            document.getElementById('show-duration').value = show.duration;
+            tempPerformances = JSON.parse(JSON.stringify(show.performances)); // Deep copy
+
+            renderTempPerformances();
+            formTitle.textContent = "Edit Show";
+            submitShowBtn.textContent = "Update Show";
+            submitShowBtn.classList.replace('bg-green-600', 'bg-sky-600');
+            submitShowBtn.classList.replace('hover:bg-green-700', 'hover:bg-sky-700');
+            cancelEditBtn.classList.remove('hidden');
+            
+            document.getElementById('form-section').scrollIntoView();
+        }
+        
+        function cancelEdit() {
+            editingShowId = null;
+            tempPerformances = [];
+            addShowForm.reset();
+            renderTempPerformances();
+            
+            formTitle.textContent = "Add a New Show";
+            submitShowBtn.textContent = "Add Show to List";
+            submitShowBtn.classList.replace('bg-sky-600', 'bg-green-600');
+            submitShowBtn.classList.replace('hover:bg-sky-700', 'hover:bg-green-700');
+            cancelEditBtn.classList.add('hidden');
+        }
+
+        cancelEditBtn.addEventListener('click', cancelEdit);
+
+        window.deleteShow = (showId) => {
+            if (confirm('Are you sure you want to delete this show?')) {
+                const index = showsData.findIndex(s => s.id === showId);
+                if (index > -1) {
+                    showsData.splice(index, 1);
+                    renderShowsList();
+                }
+            }
+        };
+
+        addShowForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('show-title').value;
+            const venue = document.getElementById('show-venue').value;
+            const duration = parseInt(document.getElementById('show-duration').value, 10);
+
+            if (!title || !venue || !duration || tempPerformances.length === 0) {
+                alert('Please fill all fields and add at least one performance.');
+                return;
+            }
+
+            if (editingShowId !== null) {
+                // Update existing show
+                const index = showsData.findIndex(s => s.id === editingShowId);
+                if (index > -1) {
+                    showsData[index] = { ...showsData[index], title, venue, duration, performances: tempPerformances };
+                }
+            } else {
+                // Add new show
+                showsData.push({
+                    id: nextShowId++,
+                    title,
+                    venue,
+                    duration,
+                    rating: 0,
+                    performances: tempPerformances
+                });
+            }
+            
+            renderShowsList();
+            cancelEdit(); // Resets the form to "add" mode
+        });
+
+        generateJsonBtn.addEventListener('click', () => {
+            const festivalData = {
+                festivalStartDate: document.getElementById('festival-start-date').value + 'T00:00:00',
+                festivalEndDate: document.getElementById('festival-end-date').value + 'T23:59:59',
+                shows: showsData
+            };
+            jsonOutput.value = JSON.stringify(festivalData, null, 2);
+        });
+
+        copyJsonBtn.addEventListener('click', () => {
+            jsonOutput.select();
+            document.execCommand('copy');
+            copyJsonBtn.textContent = 'Copied!';
+            setTimeout(() => { copyJsonBtn.textContent = 'Copy to Clipboard'; }, 2000);
+        });
+        
+        importJsonBtn.addEventListener('click', () => {
+            importErrorMsg.classList.add('hidden');
+            try {
+                const data = JSON.parse(jsonImportText.value);
+                if (!data.shows || !data.festivalStartDate || !data.festivalEndDate) {
+                    throw new Error("Missing required fields in JSON.");
+                }
+                document.getElementById('festival-start-date').value = data.festivalStartDate.split('T')[0];
+                document.getElementById('festival-end-date').value = data.festivalEndDate.split('T')[0];
+                showsData = data.shows;
+                
+                // Ensure nextShowId is higher than any imported ID
+                if (showsData.length > 0) {
+                    nextShowId = Math.max(...showsData.map(s => s.id)) + 1;
+                } else {
+                    nextShowId = 1;
+                }
+                
+                renderShowsList();
+                jsonImportText.value = '';
+                alert('Data imported successfully!');
+
+            } catch (error) {
+                importErrorMsg.textContent = `Error: ${error.message}`;
+                importErrorMsg.classList.remove('hidden');
+            }
+        });
+    });
+</script>
+</body>
+</html>

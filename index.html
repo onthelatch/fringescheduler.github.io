@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fringe Festival Scheduler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #111827; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .star-rating i { cursor: pointer; transition: color 0.2s; }
+        .star-rating i.filled { color: #f59e0b; }
+        .star-rating:hover i { color: #fde047 !important; }
+        .star-rating i:hover ~ i { color: #9ca3af !important; }
+        .view-toggle.active {
+            color: white;
+            border-color: #0ea5e9; /* sky-500 */
+        }
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="text-gray-300">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-white tracking-tight">Fringe Festival Scheduler</h1>
+            <p class="mt-2 text-lg text-gray-400">Your personalized guide to the festival</p>
+        </header>
+
+        <!-- Controls -->
+        <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-8 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-4 z-20 border border-gray-700">
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <label for="transfer-time" class="font-medium text-white">Transfer Time (mins):</label>
+                    <input type="number" id="transfer-time" value="30" class="bg-gray-700 border border-gray-600 text-white rounded-md p-2 w-20 focus:ring-2 focus:ring-sky-500 focus:border-sky-500">
+                </div>
+                <div class="flex items-center gap-2">
+                    <label for="max-shows" class="font-medium text-white">Max Shows/Day:</label>
+                    <input type="number" id="max-shows" value="5" class="bg-gray-700 border border-gray-600 text-white rounded-md p-2 w-20 focus:ring-2 focus:ring-sky-500 focus:border-sky-500">
+                </div>
+                <!-- Hide Unavailable Toggle -->
+                <div class="flex items-center gap-2 border-l border-gray-600 pl-4 ml-2">
+                    <label for="hide-unavailable-toggle" class="font-medium text-white">Hide Unavailable:</label>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="hide-unavailable-toggle" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+                    </label>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="set-availability-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out flex items-center gap-2">
+                    <i data-lucide="calendar-clock" class="w-5 h-5"></i>
+                    Set Availability
+                </button>
+                <button id="generate-schedule" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 flex items-center gap-2" disabled>
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    Generate Schedule
+                </button>
+                 <button id="reset-all" class="bg-gray-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out flex items-center gap-2">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                    Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            <!-- Left Column: Show List -->
+            <div>
+                 <h2 class="text-2xl font-bold mb-4 text-white flex items-center gap-2">
+                    <i data-lucide="ticket" class="w-6 h-6 text-amber-400"></i>
+                    Rank The Shows
+                </h2>
+                
+                <div id="show-list" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                    <div id="loading-state" class="text-center text-gray-500 p-8">
+                        <i data-lucide="loader-2" class="w-16 h-16 mx-auto mb-4 animate-spin"></i>
+                        <p>Loading festival data...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: My Schedule -->
+            <div>
+                <h2 class="text-2xl font-bold mb-4 text-white flex items-center gap-2">
+                    <i data-lucide="calendar" class="w-6 h-6 text-green-400"></i>
+                    Your Suggested Schedule
+                </h2>
+                
+                <!-- Synopsis Output -->
+                <div id="schedule-synopsis" class="mb-4"></div>
+
+                <!-- View Toggles -->
+                <div class="flex border-b border-gray-700 mb-4">
+                    <button id="view-toggle-list" class="view-toggle active px-4 py-2 font-semibold text-white border-b-2 border-sky-500">List View</button>
+                    <button id="view-toggle-calendar" class="view-toggle px-4 py-2 font-semibold text-gray-400 border-b-2 border-transparent hover:text-white">Calendar View</button>
+                </div>
+
+                <div id="schedule-output-wrapper" class="bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-700 min-h-[60vh] relative">
+                    <div id="schedule-output-list">
+                        <div class="text-center text-gray-400 h-full flex flex-col justify-center">
+                            <i data-lucide="calendar-days" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i>
+                            <h3 class="font-bold text-lg">Your schedule is empty.</h3>
+                            <p>Rank some shows and click "Generate Schedule" to begin!</p>
+                        </div>
+                    </div>
+                    <div id="schedule-output-calendar" class="hidden">
+                        <!-- Calendar will be rendered here by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Availability Modal -->
+    <div id="availability-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-overlay fixed inset-0"></div>
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative animate-fade-in">
+            <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                <h2 class="text-xl font-bold text-white">Set Your Availability</h2>
+                <button id="close-availability-modal" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div id="availability-dates" class="p-6 space-y-4 overflow-y-auto">
+                <!-- Dynamic content will be injected here -->
+            </div>
+            <div class="p-4 border-t border-gray-700 bg-gray-800/80 backdrop-blur-sm">
+                <button id="save-availability-btn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg transition">Save & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA (This will be loaded from a URL) ---
+        const DATA_URL = "https://pastebin.com/raw/gNafMcME"; // <-- IMPORTANT: Replace with your actual Pastebin Raw URL
+
+        let festivalStartDate = new Date();
+        let festivalEndDate = new Date();
+        let shows = [];
+        let userAvailability = {};
+
+        // --- DOM Elements ---
+        const showListContainer = document.getElementById('show-list');
+        const scheduleListOutputContainer = document.getElementById('schedule-output-list');
+        const scheduleCalendarOutputContainer = document.getElementById('schedule-output-calendar');
+        const scheduleSynopsisContainer = document.getElementById('schedule-synopsis');
+        const generateButton = document.getElementById('generate-schedule');
+        const resetButton = document.getElementById('reset-all');
+        const transferTimeInput = document.getElementById('transfer-time');
+        const maxShowsInput = document.getElementById('max-shows');
+        const hideUnavailableToggle = document.getElementById('hide-unavailable-toggle');
+        const setAvailabilityBtn = document.getElementById('set-availability-btn');
+        const availabilityModal = document.getElementById('availability-modal');
+        const closeAvailabilityModalBtn = document.getElementById('close-availability-modal');
+        const saveAvailabilityBtn = document.getElementById('save-availability-btn');
+        const availabilityDatesContainer = document.getElementById('availability-dates');
+        
+        // --- DATA LOADING ---
+        async function loadDataFromURL() {
+            try {
+                const response = await fetch(DATA_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                if (!data.shows || !data.festivalStartDate || !data.festivalEndDate) {
+                    throw new Error("Invalid JSON structure from URL.");
+                }
+
+                shows = data.shows;
+                festivalStartDate = new Date(data.festivalStartDate);
+                festivalEndDate = new Date(data.festivalEndDate);
+                
+                generateButton.disabled = false;
+                renderShows();
+                renderAvailabilityModal(); // Prepare modal content
+
+            } catch (error) {
+                console.error("Failed to load festival data:", error);
+                showListContainer.innerHTML = `
+                    <div class="text-center text-red-400 p-8 bg-red-500/10 rounded-lg">
+                        <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4"></i>
+                        <h3 class="font-bold text-lg">Failed to Load Festival Data</h3>
+                        <p class="text-sm">${error.message}. Please check the URL or try again later.</p>
+                    </div>`;
+                lucide.createIcons();
+            }
+        }
+
+        // --- UTILITY FUNCTIONS ---
+        function setRating(showId, rating) {
+            const show = shows.find(s => s.id === showId);
+            show.rating = show.rating === rating ? 0 : rating;
+            renderShows();
+        }
+
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        }
+        
+        function renderShows() {
+            showListContainer.innerHTML = '';
+            if (shows.length === 0) {
+                 showListContainer.innerHTML = `<div class="text-center text-gray-500 p-8"><i data-lucide="list-x" class="w-16 h-16 mx-auto mb-4"></i><p>No shows found in the loaded data.</p></div>`;
+                lucide.createIcons();
+                return;
+            }
+            shows.forEach(show => {
+                const schedulablePerformances = show.performances.filter(p => p.status === 'available' || p.status === 'limited availability');
+                const hasLimited = schedulablePerformances.some(p => p.status === 'limited availability');
+                const hasPurelyAvailable = schedulablePerformances.some(p => p.status === 'available');
+                const isUnavailable = schedulablePerformances.length === 0;
+
+                let cardClasses = 'bg-gray-800 border border-gray-700 rounded-lg p-4 transition-all hover:shadow-xl';
+                if (isUnavailable && hideUnavailableToggle.checked) cardClasses += ' opacity-50';
+                
+                let statusHtml = '';
+                if (isUnavailable) {
+                    const status = show.performances.length > 0 ? show.performances[0].status : 'unavailable';
+                    statusHtml = `<span class="text-sm font-semibold uppercase tracking-wider px-2 py-1 rounded-full bg-red-500/20 text-red-400">${status}</span>`;
+                } else if (hasLimited && hasPurelyAvailable) {
+                    statusHtml = `<span class="text-sm font-semibold uppercase tracking-wider px-2 py-1 rounded-full bg-amber-500/20 text-amber-400">Selling Fast!</span>`;
+                } else if (hasLimited && !hasPurelyAvailable) {
+                    statusHtml = `<span class="text-sm font-semibold uppercase tracking-wider px-2 py-1 rounded-full bg-amber-500/20 text-amber-400">Limited Availability</span>`;
+                }
+
+                const showCard = document.createElement('div');
+                showCard.className = cardClasses;
+                const starRatingWrapperClasses = (isUnavailable && hideUnavailableToggle.checked) ? 'pointer-events-none' : '';
+
+                showCard.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div><h3 class="font-bold text-lg text-white">${show.title}</h3><p class="text-sm text-gray-400">${show.venue} &bull; ${show.duration} mins</p></div>
+                        ${statusHtml}
+                    </div>
+                    <div class="mt-4 ${starRatingWrapperClasses}">${createStarRating(show)}</div>`;
+                showListContainer.appendChild(showCard);
+            });
+            lucide.createIcons();
+        }
+
+        function createStarRating(show) {
+            let starsHtml = '';
+            for (let i = 5; i >= 1; i--) {
+                const filledClass = i <= show.rating ? 'filled' : '';
+                starsHtml += `<i data-lucide="star" class="w-6 h-6 text-gray-600 ${filledClass}" onclick="setRating(${show.id}, ${i})"></i>`;
+            }
+            return `<div class="star-rating flex flex-row-reverse justify-end items-center gap-1">${starsHtml}</div>`;
+        }
+        
+        function renderScheduleList(schedule) {
+            scheduleListOutputContainer.innerHTML = '';
+            const sortedDays = Object.keys(schedule).sort((a, b) => new Date(a) - new Date(b));
+
+            if (sortedDays.length === 0) {
+                scheduleListOutputContainer.innerHTML = `<div class="text-center text-gray-400 h-full flex flex-col justify-center animate-fade-in"><i data-lucide="search-x" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i><h3 class="font-bold text-lg">No Schedule Could Be Generated</h3><p>Try changing your settings, or ranking more shows!</p></div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            sortedDays.forEach(day => {
+                const dayContainer = document.createElement('div');
+                dayContainer.className = 'mb-6 animate-fade-in';
+                const dayDate = new Date(day);
+                let dayHtml = `<h3 class="font-bold text-xl text-white mb-3 border-b-2 border-gray-700 pb-2">${formatDate(dayDate)}</h3>`;
+                const daySchedule = schedule[day].sort((a, b) => a.startTime - b.startTime);
+
+                daySchedule.forEach(item => {
+                    let limitedAvailabilityBadge = item.status === 'limited availability' ? `<span class="ml-2 inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400" title="Limited Availability - Book Soon!"><i data-lucide="alert-triangle" class="w-3 h-3"></i>Limited</span>` : '';
+                    dayHtml += `<div class="bg-gray-700/50 p-3 rounded-lg mb-3 flex items-start gap-4"><div class="text-center font-semibold"><div class="text-sky-400">${formatTime(item.startTime)}</div><div class="text-xs text-gray-400">to</div><div class="text-gray-300">${formatTime(item.endTime)}</div></div><div class="flex-grow"><h4 class="font-bold text-white flex items-center">${item.title} ${limitedAvailabilityBadge}</h4><p class="text-sm text-gray-400">${item.venue}</p></div><div class="flex-shrink-0 self-center"><div class="star-rating flex items-center"><span class="font-bold text-amber-400 mr-1">${item.rating}</span><i data-lucide="star" class="w-5 h-5 text-amber-400" style="fill: #f59e0b;"></i></div></div></div>`;
+                });
+                dayContainer.innerHTML = dayHtml;
+                scheduleListOutputContainer.appendChild(dayContainer);
+            });
+            lucide.createIcons();
+        }
+        
+        function renderCalendar(schedule) {
+            scheduleCalendarOutputContainer.innerHTML = '';
+            const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            let headerHtml = '<div class="grid grid-cols-7 gap-1 text-center font-bold text-gray-400 text-sm mb-2">' + daysOfWeek.map(d => `<div>${d}</div>`).join('') + '</div>';
+            let calendarHtml = '<div class="grid grid-cols-7 gap-1">';
+            const currentDate = new Date(festivalStartDate);
+            currentDate.setDate(currentDate.getDate() - currentDate.getDay());
+            const endDate = new Date(festivalEndDate);
+            for (let i = 0; i < 35; i++) {
+                if (currentDate > endDate && currentDate.getDay() === 0) break;
+                const cellBg = (currentDate < festivalStartDate || currentDate > endDate) ? 'bg-gray-900/50' : 'bg-gray-700/30';
+                const textColor = (currentDate < festivalStartDate || currentDate > endDate) ? 'text-gray-600' : 'text-gray-300';
+                const dayKey = currentDate.toDateString();
+                const daySchedule = schedule[dayKey] ? schedule[dayKey].sort((a, b) => a.startTime - b.startTime) : [];
+                let showsHtml = daySchedule.map(item => `<div class="bg-sky-600/70 hover:bg-sky-500 transition-colors text-white p-1 rounded cursor-pointer text-xs mb-1 overflow-hidden truncate" title="${formatTime(item.startTime)} - ${item.title} @ ${item.venue}"><span class="font-bold">${formatTime(item.startTime)}</span> ${item.title}</div>`).join('');
+                calendarHtml += `<div class="${cellBg} rounded h-32 p-1 text-sm overflow-y-auto"><span class="font-bold ${textColor}">${currentDate.getDate()}</span><div class="mt-1">${showsHtml}</div></div>`;
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            calendarHtml += '</div>';
+            scheduleCalendarOutputContainer.innerHTML = headerHtml + calendarHtml;
+        }
+
+        function renderSynopsis(sacrificedShows) {
+            if (!sacrificedShows) {
+                scheduleSynopsisContainer.innerHTML = '';
+                return;
+            }
+            if (sacrificedShows.length === 0) {
+                scheduleSynopsisContainer.innerHTML = `<div class="bg-green-500/10 border border-green-500/30 text-green-300 text-sm rounded-lg p-3 animate-fade-in flex items-start gap-3"><i data-lucide="check-circle" class="w-5 h-5 flex-shrink-0 mt-0.5"></i><div><h4 class="font-bold">Success!</h4><p>We were able to fit all of your rated shows into the schedule.</p></div></div>`;
+            } else {
+                const mustSeeSacrificed = sacrificedShows.filter(s => s.rating >= 4).sort((a,b) => b.rating - a.rating);
+                let message = mustSeeSacrificed.length > 0 ? `<p class="mt-1">Due to conflicts, we couldn't fit in these high-priority shows: ${mustSeeSacrificed.map(s => `<strong>${s.title}</strong> (Rated ${s.rating})`).join(', ')}. You could try increasing max shows per day, reducing travel time, or un-rating conflicting lower-priority shows.</p>` : `<p class="mt-1">We couldn't fit <strong>${sacrificedShows.length}</strong> of your lower-rated show(s) into the schedule due to conflicts with higher-priority selections.</p>`;
+                scheduleSynopsisContainer.innerHTML = `<div class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm rounded-lg p-3 animate-fade-in flex items-start gap-3"><i data-lucide="info" class="w-5 h-5 flex-shrink-0 mt-0.5"></i><div><h4 class="font-bold">Schedule Summary</h4>${message}</div></div>`;
+            }
+            lucide.createIcons();
+        }
+
+        // --- AVAILABILITY MODAL ---
+        function renderAvailabilityModal() {
+            availabilityDatesContainer.innerHTML = '';
+            const currentDate = new Date(festivalStartDate);
+            while (currentDate <= festivalEndDate) {
+                const dayKey = currentDate.toDateString();
+                const dayData = userAvailability[dayKey] || { unavailable: false, windows: [] };
+                
+                const dayHtml = `
+                    <div class="bg-gray-700/50 p-3 rounded-lg" data-day-key="${dayKey}">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-bold text-white">${formatDate(currentDate)}</h4>
+                            <div class="flex items-center gap-2">
+                                <label for="unavailable-${dayKey}" class="text-sm">Unavailable all day:</label>
+                                <input type="checkbox" id="unavailable-${dayKey}" class="unavailable-checkbox h-4 w-4 rounded bg-gray-600 border-gray-500 text-sky-600 focus:ring-sky-500" ${dayData.unavailable ? 'checked' : ''}>
+                            </div>
+                        </div>
+                        <div class="time-window-section ${dayData.unavailable ? 'hidden' : ''}">
+                            <div class="flex items-center gap-2 mb-2">
+                                <input type="time" class="from-time bg-gray-600 border-gray-500 rounded p-1 text-white text-sm w-full">
+                                <span class="text-gray-400">-</span>
+                                <input type="time" class="to-time bg-gray-600 border-gray-500 rounded p-1 text-white text-sm w-full">
+                                <button class="add-window-btn bg-sky-600 hover:bg-sky-700 text-white font-bold p-1 rounded-md"><i data-lucide="plus" class="w-5 h-5"></i></button>
+                            </div>
+                            <div class="windows-list space-y-1">
+                                ${dayData.windows.map((w, i) => `
+                                    <div class="flex items-center justify-between bg-gray-600 p-1.5 rounded text-sm">
+                                        <span>${w.start} - ${w.end}</span>
+                                        <button class="remove-window-btn text-red-400 hover:text-red-300" data-index="${i}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                availabilityDatesContainer.innerHTML += dayHtml;
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            lucide.createIcons();
+        }
+
+        availabilityDatesContainer.addEventListener('change', e => {
+            if (e.target.classList.contains('unavailable-checkbox')) {
+                const dayContainer = e.target.closest('[data-day-key]');
+                const dayKey = dayContainer.dataset.dayKey;
+                const isChecked = e.target.checked;
+                if (!userAvailability[dayKey]) userAvailability[dayKey] = { unavailable: false, windows: [] };
+                userAvailability[dayKey].unavailable = isChecked;
+                dayContainer.querySelector('.time-window-section').classList.toggle('hidden', isChecked);
+            }
+        });
+
+        availabilityDatesContainer.addEventListener('click', e => {
+            const addBtn = e.target.closest('.add-window-btn');
+            const removeBtn = e.target.closest('.remove-window-btn');
+            if (addBtn) {
+                const dayContainer = addBtn.closest('[data-day-key]');
+                const dayKey = dayContainer.dataset.dayKey;
+                const fromTime = dayContainer.querySelector('.from-time').value;
+                const toTime = dayContainer.querySelector('.to-time').value;
+
+                if (fromTime && toTime && fromTime < toTime) {
+                    if (!userAvailability[dayKey]) userAvailability[dayKey] = { unavailable: false, windows: [] };
+                    userAvailability[dayKey].windows.push({ start: fromTime, end: toTime });
+                    renderAvailabilityModal(); // Re-render to show new window
+                }
+            }
+            if (removeBtn) {
+                const dayContainer = removeBtn.closest('[data-day-key]');
+                const dayKey = dayContainer.dataset.dayKey;
+                const index = parseInt(removeBtn.dataset.index, 10);
+                if (userAvailability[dayKey] && userAvailability[dayKey].windows[index]) {
+                    userAvailability[dayKey].windows.splice(index, 1);
+                    renderAvailabilityModal(); // Re-render
+                }
+            }
+        });
+
+        function openAvailabilityModal() { availabilityModal.classList.remove('hidden'); }
+        function closeAvailabilityModal() { availabilityModal.classList.add('hidden'); }
+
+        // --- LOGIC & ALGORITHM ---
+        function generateSchedule() {
+            const transferTime = parseInt(transferTimeInput.value, 10) * 60 * 1000;
+            const maxShowsPerDay = parseInt(maxShowsInput.value, 10);
+            
+            const ratedShows = shows.filter(show => show.rating > 0);
+            const allPerformances = ratedShows
+                .flatMap(show => show.performances
+                    .filter(p => p.status === 'available' || p.status === 'limited availability')
+                    .map(p => ({
+                        showId: show.id, title: show.title, venue: show.venue, rating: show.rating,
+                        startTime: new Date(p.startTime),
+                        endTime: new Date(new Date(p.startTime).getTime() + show.duration * 60000),
+                        status: p.status,
+                    }))
+                );
+
+            allPerformances.sort((a, b) => b.rating - a.rating || a.startTime - b.startTime);
+
+            const finalSchedule = {};
+            const scheduledShowIds = new Set();
+            const showsPerDayCount = {};
+
+            allPerformances.forEach(perf => {
+                if (scheduledShowIds.has(perf.showId)) return;
+
+                const dayKey = perf.startTime.toDateString();
+                const dayAvailability = userAvailability[dayKey];
+
+                if (dayAvailability) {
+                    if (dayAvailability.unavailable) return; // Skip if unavailable all day
+                    if (dayAvailability.windows.length > 0) {
+                        const isAvailable = dayAvailability.windows.some(window => {
+                            const windowStart = new Date(dayKey);
+                            const [startH, startM] = window.start.split(':');
+                            windowStart.setHours(startH, startM, 0, 0);
+
+                            const windowEnd = new Date(dayKey);
+                            const [endH, endM] = window.end.split(':');
+                            windowEnd.setHours(endH, endM, 0, 0);
+
+                            return perf.startTime >= windowStart && perf.endTime <= windowEnd;
+                        });
+                        if (!isAvailable) return; // Skip if it doesn't fit in any window
+                    }
+                }
+
+                if (!showsPerDayCount[dayKey]) showsPerDayCount[dayKey] = 0;
+                if (showsPerDayCount[dayKey] >= maxShowsPerDay) return;
+
+                let isConflict = false;
+                if (finalSchedule[dayKey]) {
+                    for (const scheduledItem of finalSchedule[dayKey]) {
+                        if (perf.startTime < new Date(scheduledItem.endTime.getTime() + transferTime) && 
+                            new Date(perf.endTime.getTime() + transferTime) > scheduledItem.startTime) {
+                            isConflict = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!isConflict) {
+                    if (!finalSchedule[dayKey]) finalSchedule[dayKey] = [];
+                    finalSchedule[dayKey].push(perf);
+                    showsPerDayCount[dayKey]++;
+                    scheduledShowIds.add(perf.showId);
+                }
+            });
+            
+            const sacrificedShows = ratedShows.filter(show => !scheduledShowIds.has(show.id));
+            renderSynopsis(sacrificedShows);
+            renderScheduleList(finalSchedule);
+            renderCalendar(finalSchedule);
+        }
+
+        function resetAll() {
+             if (shows.length === 0) return;
+             shows.forEach(show => show.rating = 0);
+             userAvailability = {};
+             renderShows();
+             renderAvailabilityModal();
+             resetScheduleView();
+        }
+
+        function resetScheduleView() {
+            scheduleSynopsisContainer.innerHTML = '';
+            scheduleListOutputContainer.innerHTML = `<div class="text-center text-gray-400 h-full flex flex-col justify-center"><i data-lucide="calendar-days" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i><h3 class="font-bold text-lg">Your schedule is empty.</h3><p>Rank some shows and click "Generate Schedule" to begin!</p></div>`;
+            scheduleCalendarOutputContainer.innerHTML = '';
+            document.getElementById('view-toggle-list').click();
+            lucide.createIcons();
+        }
+
+        // --- Event Listeners & Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadDataFromURL();
+
+            generateButton.addEventListener('click', generateSchedule);
+            resetButton.addEventListener('click', resetAll);
+            hideUnavailableToggle.addEventListener('change', renderShows);
+            setAvailabilityBtn.addEventListener('click', openAvailabilityModal);
+            closeAvailabilityModalBtn.addEventListener('click', closeAvailabilityModal);
+            saveAvailabilityBtn.addEventListener('click', closeAvailabilityModal);
+            availabilityModal.querySelector('.modal-overlay').addEventListener('click', closeAvailabilityModal);
+
+            const viewToggleList = document.getElementById('view-toggle-list');
+            const viewToggleCalendar = document.getElementById('view-toggle-calendar');
+            const listView = document.getElementById('schedule-output-list');
+            const calendarView = document.getElementById('schedule-output-calendar');
+
+            viewToggleList.addEventListener('click', (e) => {
+                e.target.classList.add('active');
+                viewToggleCalendar.classList.remove('active');
+                listView.classList.remove('hidden');
+                calendarView.classList.add('hidden');
+            });
+
+            viewToggleCalendar.addEventListener('click', (e) => {
+                e.target.classList.add('active');
+                viewToggleList.classList.remove('active');
+                calendarView.classList.remove('hidden');
+                listView.classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html>
