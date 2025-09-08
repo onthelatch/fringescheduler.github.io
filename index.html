@@ -15,8 +15,7 @@
         ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
         .star-rating i { cursor: pointer; transition: color 0.2s; }
         .star-rating i.filled { color: #f59e0b; }
-        .star-rating:hover i { color: #fde047 !important; }
-        .star-rating i:hover ~ i { color: #9ca3af !important; }
+        .star-rating i.hover-preview { color: #fde047; }
         .view-toggle.active {
             color: white;
             border-color: #0ea5e9; /* sky-500 */
@@ -200,6 +199,57 @@
             }
         }
 
+        // --- RATING TEXTS & FUNCTIONS ---
+        const RATING_DESCRIPTIONS = {
+            0: 'Not interested',
+            1: "I'll take a risk",
+            2: 'Would go',
+            3: 'Curious to see',
+            4: 'Very keen',
+            5: 'Must watch'
+        };
+
+        function getRatingText(rating) {
+            return RATING_DESCRIPTIONS[rating] || 'Not interested';
+        }
+
+        function handleStarHover(showId, rating) {
+            const showCard = document.querySelector(`[data-show-id="${showId}"]`);
+            if (!showCard) return;
+
+            const stars = showCard.querySelectorAll('.star-rating i');
+            stars.forEach((star, index) => {
+                if (index < rating) {
+                    star.classList.add('hover-preview');
+                } else {
+                    star.classList.remove('hover-preview');
+                }
+            });
+
+            const ratingTextEl = showCard.querySelector(`#rating-text-${showId}`);
+            if (ratingTextEl) {
+                ratingTextEl.textContent = getRatingText(rating);
+            }
+        }
+
+        function handleStarMouseOut(showId) {
+            const show = shows.find(s => s.id === showId);
+            if (!show) return;
+
+            const showCard = document.querySelector(`[data-show-id="${showId}"]`);
+            if (!showCard) return;
+            
+            const stars = showCard.querySelectorAll('.star-rating i');
+            stars.forEach(star => {
+                star.classList.remove('hover-preview');
+            });
+
+            const ratingTextEl = showCard.querySelector(`#rating-text-${showId}`);
+            if (ratingTextEl) {
+                ratingTextEl.textContent = getRatingText(show.rating);
+            }
+        }
+
         // --- UTILITY FUNCTIONS ---
         function setRating(showId, rating) {
             const show = shows.find(s => s.id === showId);
@@ -243,6 +293,7 @@
 
                 const showCard = document.createElement('div');
                 showCard.className = cardClasses;
+                showCard.dataset.showId = show.id;
                 const starRatingWrapperClasses = (isUnavailable && hideUnavailableToggle.checked) ? 'pointer-events-none' : '';
 
                 showCard.innerHTML = `
@@ -258,11 +309,16 @@
 
         function createStarRating(show) {
             let starsHtml = '';
-            for (let i = 5; i >= 1; i--) {
+            for (let i = 1; i <= 5; i++) {
                 const filledClass = i <= show.rating ? 'filled' : '';
-                starsHtml += `<i data-lucide="star" class="w-6 h-6 text-gray-600 ${filledClass}" onclick="setRating(${show.id}, ${i})"></i>`;
+                starsHtml += `<i data-lucide="star" class="w-6 h-6 text-gray-600 ${filledClass}" onmouseover="handleStarHover(${show.id}, ${i})" onclick="setRating(${show.id}, ${i})"></i>`;
             }
-            return `<div class="star-rating flex flex-row-reverse justify-end items-center gap-1">${starsHtml}</div>`;
+            const ratingText = getRatingText(show.rating);
+            return `
+                <div class="star-rating-container flex items-center" onmouseleave="handleStarMouseOut(${show.id})">
+                    <div class="star-rating flex items-center gap-1">${starsHtml}</div>
+                    <span id="rating-text-${show.id}" class="text-sm text-gray-400 ml-3" style="min-width: 120px;">${ratingText}</span>
+                </div>`;
         }
         
         function renderScheduleList(schedule) {
